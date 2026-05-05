@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>TimeNorm минуты</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#020617;color:white;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}.app{max-width:740px;margin:auto;min-height:100vh;padding:12px 12px 88px;background:radial-gradient(circle at top left,#0f766e,transparent 35%),#020617}.top{display:grid;grid-template-columns:1fr auto;gap:12px}.badge{display:inline-block;background:#6ee7b7;color:#020617;border-radius:999px;padding:6px 10px;font-weight:900}h1{font-size:34px;line-height:.95;margin:10px 0 4px}h2{font-size:18px;margin:20px 0 10px}p,.muted{color:#cbd5e1}.total{background:white;color:#020617;border-radius:22px;padding:14px;min-width:132px}.total span{color:#64748b;font-size:13px}.total b{font-size:26px}.total small{display:block;color:#64748b;margin-top:4px}.card{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:16px;margin:12px 0}.nav{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);width:calc(100% - 20px);max-width:720px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:rgba(2,6,23,.94);border:1px solid rgba(255,255,255,.12);border-radius:22px;padding:6px}.nav button{background:transparent;color:#cbd5e1;margin:0}.nav button.active{background:#6ee7b7;color:#020617}button,.file{width:100%;border:0;border-radius:16px;padding:14px;background:#e2e8f0;color:#020617;font-weight:900;font-size:15px;margin-top:8px;display:block;text-align:center}.active,.main{background:#6ee7b7!important;color:#020617!important}.danger{background:#fb7185!important;color:white!important}label{display:flex;flex-direction:column;gap:6px;margin-top:10px;color:#cbd5e1;font-size:14px}input,select{width:100%;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.85);color:white;border-radius:16px;padding:14px;font-size:16px}select option{color:#020617}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.res{background:rgba(255,255,255,.1);border-radius:18px;padding:14px}.res span{display:block;color:#cbd5e1;font-size:12px}.res b{display:block;font-size:19px;margin-top:5px;overflow-wrap:anywhere}.big{background:white;color:#020617}.big span{color:#64748b}.ok,.warn,.pay,.note{border-radius:18px;padding:14px;margin-top:14px}.ok{background:rgba(52,211,153,.16);border:1px solid rgba(52,211,153,.35)}.warn{background:rgba(250,204,21,.16);border:1px solid rgba(250,204,21,.35)}.pay{background:#6ee7b7;color:#020617}.pay b{font-size:24px}.pay small{display:block;color:#134e4a;margin-top:6px}.note{background:rgba(96,165,250,.16);border:1px solid rgba(96,165,250,.35)}.note span{display:block;color:#cbd5e1;font-size:13px;line-height:1.45;margin-top:4px}.record{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:12px;margin-top:10px;display:flex;flex-direction:column;gap:3px}.record small,.record span{color:#cbd5e1}.file input{display:none}.timer{text-align:center;margin-top:14px}.timerval{font-size:52px;font-weight:950}.manual{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}.manual button{width:auto;margin:0}@media(max-width:480px){.top,.grid{grid-template-columns:1fr}h1{font-size:30px}.timerval{font-size:44px}}
+</style></head><body><div id="app"></div><script>
+const KEY='timenorm_precision_chrono_v1';
+const DEFAULT={products:{'Изделие пример':{'ДСЕ пример':{'Операция пример':100}}},materials:{'Сталь 3':1,'Сталь 45':1.08,'Нержавейка':1.25,'Алюминий':0.85},ops:{'Резка':{base:0.048,setup:0},'Токарная обработка':{base:55,setup:420},'Фрезерная обработка':{base:70,setup:480},'Слесарная обработка':{base:80,setup:240},'Сборка':{base:90,setup:300}},tariffs:{'Обычный':1,'Ночь':1.3,'Срочно':1.5},grades:{'1 разряд':1,'2 разряд':1.15,'3 разряд':1.3,'4 разряд':1.5,'5 разряд':1.7,'6 разряд':1.9,'7 разряд':2.15,'8 разряд':2.4},hourlyRates:{'1 разряд':220,'2 разряд':260,'3 разряд':310,'4 разряд':380,'5 разряд':450,'6 разряд':520,'7 разряд':610,'8 разряд':720},employees:['Я','Смена 1','Бригада 1'],normRows:[]};
+function init(){let d=structuredClone(DEFAULT),p=Object.keys(d.products)[0],ds=Object.keys(d.products[p])[0],op=Object.keys(d.products[p][ds])[0];return{data:d,records:[],tab:'calc',timer:0,running:false,start:0,form:{product:p,dse:ds,rateOp:op,techOp:'Резка',operationDesc:'',equipment:'',thickness:'',material:'Сталь 3',mass:'',base:'0.048',normUnit:'минуты',normBaseQty:'100',setup:'0',batch:'1',qty:'1',employee:'Я',chronoSeries:'Серия 1',grade:'2 разряд',tariff:'Обычный',paymentType:'Обе'}}}
+let state;try{state=JSON.parse(localStorage.getItem(KEY))||init();state.form={...init().form,...(state.form||{})};state.data={...structuredClone(DEFAULT),...(state.data||{}),products:{...DEFAULT.products,...(state.data?.products||{})},ops:{...DEFAULT.ops,...(state.data?.ops||{})},normRows:state.data?.normRows||[]}}catch{state=init()}let interval=null;
+function save(){try{localStorage.setItem(KEY,JSON.stringify({...state,running:false,timer:0,start:0}))}catch{}}
+function ks(o){return Object.keys(o||{})}function n(v,f=0){let x=Number(String(v??'').replace(',','.'));return Number.isFinite(x)?x:f}function toSec(value,unit){let x=n(value,0);if(unit==='часы')return x*3600;if(unit==='минуты')return x*60;return x}
+function sec(v){let x=Number(v)||0;if(Math.abs(x)<1)return x.toFixed(9).replace(/0+$/,'').replace(/\.$/,'')+' сек';return x.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')+' сек'}
+function raw(v){let x=Number(v)||0;return x.toFixed(9).replace(/0+$/,'').replace(/\.$/,'')}function minFmt(secVal){let m=(Number(secVal)||0)/60;return m.toFixed(9).replace(/0+$/,'').replace(/\.$/,'')+' мин'}
+function rub(v){return new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:4}).format(Number(v)||0)}
+
+function normTxt(x){return String(x||'').toLowerCase().replace(/ё/g,'е').replace(',', '.').trim()}
+function normWords(x){return normTxt(x).split(/[\s;:/\\|,.-]+/).filter(w=>w.length>2)}
+function softIncludes(a,b){a=normTxt(a);b=normTxt(b);return !!a&&!!b&&(a.includes(b)||b.includes(a))}
+function getThicknessNum(s){let m=String(s||'').replace(',','.').match(/(\d+(?:\.\d+)?)/);return m?Number(m[1]):null}
+function thicknessOk(rowTh, formTh){
+ if(!rowTh || !formTh) return null;
+ let r=normTxt(rowTh), f=normTxt(formTh);
+ if(r===f || r.includes(f) || f.includes(r)) return true;
+ let rn=getThicknessNum(rowTh), fn=getThicknessNum(formTh);
+ if(rn==null || fn==null) return null;
+ if(r.includes('до')) return fn<=rn;
+ return Math.abs(rn-fn)<0.0001;
+}
+function rowSeconds(row){
+ if(row.baseSeconds!==undefined) return n(row.baseSeconds,0);
+ let unit=row.unit||row.normUnit||'секунды';
+ return toSec(row.base||row.norm||0,unit);
+}
+function normStrictScore(row){
+ let f=state.form,score=0;
+ let opOk=softIncludes(row.techOp,f.techOp)||normWords(f.operationDesc).some(w=>normTxt(row.techOp).includes(w));
+ let matOk=!row.material||!f.material||softIncludes(row.material,f.material);
+ let th=thicknessOk(row.thickness,f.thickness);
+ let thOk=th===true||(!row.thickness||!f.thickness);
+ let eqOk=!row.equipment||!f.equipment||softIncludes(row.equipment,f.equipment)||softIncludes(row.contour,f.equipment);
+ if(opOk)score+=40;
+ if(matOk)score+=25;
+ if(th===true)score+=20; else if(thOk)score+=5;
+ if(eqOk)score+=10;
+ let hay=normTxt([row.techOp,row.contour,row.note,row.source,row.equipment].join(' '));
+ let hits=0; normWords(f.operationDesc+' '+f.dse+' '+f.techOp).forEach(w=>{if(hay.includes(w))hits++});
+ score+=Math.min(20,hits*4);
+ if(rowSeconds(row)>0)score+=5;
+ return score;
+}
+function strictFindNorms(){
+ let rows=(state.data.normRows||[]).filter(r=>rowSeconds(r)>0);
+ let f=state.form;
+ function level(row,mode){
+   let opOk=softIncludes(row.techOp,f.techOp)||normWords(f.operationDesc).some(w=>normTxt(row.techOp).includes(w));
+   let matOk=!row.material||!f.material||softIncludes(row.material,f.material);
+   let th=thicknessOk(row.thickness,f.thickness);
+   let eqOk=!row.equipment||!f.equipment||softIncludes(row.equipment,f.equipment)||softIncludes(row.contour,f.equipment);
+   if(mode===1)return opOk&&matOk&&th===true&&eqOk;
+   if(mode===2)return opOk&&matOk&&(th===true||!row.thickness||!f.thickness);
+   if(mode===3)return opOk&&matOk;
+   if(mode===4)return opOk;
+   return false;
+ }
+ let modes=[
+   ['Строго: операция + материал + толщина + оборудование',1],
+   ['Без части параметров: операция + материал + толщина',2],
+   ['Операция + материал',3],
+   ['Только операция / описание',4]
+ ];
+ for(let m of modes){
+   let found=rows.filter(r=>level(r,m[1])).map(r=>({...r,score:normStrictScore(r),matchMode:m[0]})).sort((a,b)=>b.score-a.score);
+   if(found.length)return found.slice(0,8);
+ }
+ return rows.map(r=>({...r,score:normStrictScore(r),matchMode:'Похожая норма'})).filter(r=>r.score>=20).sort((a,b)=>b.score-a.score).slice(0,8);
+}
+function applyLoadedNorm(row){
+ if(!row)return;
+ state.form.techOp=row.techOp||state.form.techOp;
+ if(row.material)state.form.material=row.material;
+ if(row.thickness)state.form.thickness=row.thickness;
+ if(row.equipment)state.form.equipment=row.equipment;
+ state.form.base=String(rowSeconds(row));
+ state.form.setup=String(n(row.setup,0));
+ state.form.normUnit='секунды';
+ state.form.normBaseQty='1';
+ state.form.foundNormSource=row.source||'Загруженная база';
+ state.form.foundNormNote=row.note||'';
+ state.form.matchMode=row.matchMode||'Подбор нормы';
+ render();
+}
+function calculateStrictNorm(){
+ let found=strictFindNorms();
+ if(!found.length){alert('Норма не найдена. Проверь: загружен ли CSV, указана ли операция, материал, толщина или оборудование.');return}
+ applyLoadedNorm(found[0]);
+ alert('Норма подставлена: '+found[0].matchMode+' · '+found[0].techOp);
+}
+function normMatchesBlock(){
+ let loaded=(state.data.normRows||[]).length;
+ let found=strictFindNorms();
+ let used=state.form.foundNormSource?`<div class="ok"><b>Использована норма</b><span>${state.form.matchMode||''} · ${state.form.foundNormSource}${state.form.foundNormNote?' · '+state.form.foundNormNote:''}</span></div>`:'';
+ if(!loaded)return `<div class="warn"><b>База норм не загружена</b><span>Загрузи CSV во вкладке «Данные», затем нажми «Рассчитать норму по загруженной базе».</span></div>`;
+ if(!found.length)return used+`<div class="warn"><b>Норма не найдена</b><span>Можно ввести норму вручную или уточнить описание операции.</span></div>`;
+ return used+`<div class="note"><b>Подбор нормы из базы</b><span>Сначала программа ищет строго, потом ослабляет условия, если данных не хватает.</span>${found.map((r,i)=>`<button onclick="applyLoadedNorm(strictFindNorms()[${i}])">${r.matchMode} · ${r.score}% · ${r.techOp} · ${r.material||'материал любой'} · ${r.thickness||'толщина не указана'} · ${r.source||''}</button>`).join('')}</div>`;
+}
+
+function calc(){let f=state.form,d=state.data,op=d.ops[f.techOp]||{base:0,setup:0};let rawBase=n(f.base,op.base),rawBaseSeconds=toSec(rawBase,f.normUnit||'минуты'),basePerOne=rawBaseSeconds/Math.max(1,n(f.normBaseQty,1));let setup=n(f.setup,op.setup),batch=Math.max(1,n(f.batch,1));let totalPerOne=basePerOne+setup/batch;let totalForQty=totalPerOne*Math.max(1,n(f.qty,1));return{rawBase,rawBaseSeconds,basePerOne,setup,totalPerOne,totalForQty}}
+function pay(){
+ let f=state.form,d=state.data,c=calc();
+ let qty=Math.max(1,n(f.qty,1));
+ let rate=d.products[f.product]?.[f.dse]?.[f.rateOp]||0;
+ let tariffCoef=d.tariffs[f.tariff]||1;
+ let gradeCoef=d.grades[f.grade]||1;
+
+ // Сдельная часть: расценка × количество × коэффициент разряда × тариф/условие
+ let piece=rate*qty*gradeCoef*tariffCoef;
+
+ // Тарифная часть: норма времени × ставка руб/час × тариф/условие
+ let hourly=d.hourlyRates[f.grade]||0;
+ let tariff=(c.totalForQty/3600)*hourly*tariffCoef;
+
+ let total=f.paymentType==='Сдельная'?piece:f.paymentType==='Тарифная'?tariff:piece+tariff;
+ return{piece,tariff,total,hourly,gradeCoef,tariffCoef}
+}
+function seriesRecords(){let f=state.form;return state.records.filter(r=>r.product===f.product&&r.dse===f.dse&&r.rateOp===f.rateOp&&r.techOp===f.techOp&&r.employee===f.employee&&r.chronoSeries===f.chronoSeries&&r.factSeconds>0)}
+function avgFact(){let a=seriesRecords();return a.length?a.reduce((s,r)=>s+Number(r.factSeconds||0),0)/a.length:0}
+function deviation(){let c=calc(),a=avgFact();return c.totalForQty?((a-c.totalForQty)/c.totalForQty)*100:0}
+function status(){let l=seriesRecords().length,d=Math.abs(deviation());if(l<3)return'мало замеров';if(d<=10)return'подтверждается';if(d<=25)return'требует проверки';return'сильное отклонение'}
+function cell(v){return `"${String(v??'').replace(/"/g,'""')}"`}function csv(rows){return '\ufeff'+rows.map(r=>r.map(cell).join(';')).join('\n')}function dl(name,text,type='text/csv;charset=utf-8'){let b=new Blob([text],{type}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
+function recordsCsv(){return csv([['Дата','Изделие','ДСЕ','Масса кг','Операция','Техоперация','Материал','Норма указана','Единица нормы','Норма в секундах','На количество','Норма на 1 шт сек','Норма на 1 шт мин','Количество','Итого норма сек','Итого норма мин','Факт сек','Факт мин','Отклонение %','Сотрудник/бригада','Серия','Оплата'],...state.records.map(r=>[r.date,r.product,r.dse,r.mass,r.rateOp,r.techOp,r.material,r.rawBase,r.normUnit||'минуты',r.rawBaseSeconds||'',r.normBaseQty,r.basePerOne,(Number(r.basePerOne||0)/60).toFixed(9),r.qty,r.totalForQty,(Number(r.totalForQty||0)/60).toFixed(9),r.factSeconds||'',r.factSeconds?(Number(r.factSeconds||0)/60).toFixed(9):'',r.factSeconds?(((r.factSeconds-r.totalForQty)/r.totalForQty)*100).toFixed(3):'',r.employee,r.chronoSeries,r.pay])])}
+function render(){let c=calc(),p=pay();document.getElementById('app').innerHTML=`<div class="app"><header class="top"><div><span class="badge">TimeNorm</span><h1>Точные нормы</h1><p>Минуты по умолчанию + хронометраж</p></div><div class="total"><span>ТО-норма, мин</span><b>${minFmt(c.totalForQty)}</b><small>на ${state.form.qty || 1} шт</small></div></header><nav class="nav"><button class="${state.tab==='calc'?'active':''}" onclick="tab('calc')">Расчёт</button><button class="${state.tab==='chrono'?'active':''}" onclick="tab('chrono')">Хронометраж</button><button class="${state.tab==='data'?'active':''}" onclick="tab('data')">Данные</button></nav>${state.tab==='calc'?screenCalc(c,p):state.tab==='chrono'?screenChrono(c):screenData()}</div>`;save()}
+function sel(label,name,items){return `<label>${label}<select onchange="set('${name}',this.value)">${items.map(i=>`<option ${state.form[name]===i?'selected':''}>${i}</option>`).join('')}</select></label>`}
+function inp(label,name){return `<label>${label}<input value="${state.form[name]??''}" inputmode="decimal" onchange="set('${name}',this.value)" oninput="set('${name}',this.value,false)"></label>`}
+function inpText(label,name,placeholder=''){return `<label>${label}<input type="text" value="${String(state.form[name]??'').replace(/"/g,'&quot;')}" inputmode="text" placeholder="${placeholder}" onchange="set('${name}',this.value)" oninput="set('${name}',this.value,false)"></label>`}
+function res(label,value,big=''){return `<div class="res ${big}"><span>${label}</span><b>${value}</b></div>`}
+function screenCalc(c,p){let d=state.data,f=state.form,dse=ks(d.products[f.product]),ops=ks(d.products[f.product]?.[f.dse]);return `<main><section class="card"><h2>1. Данные</h2>${sel('Изделие','product',ks(d.products))}${sel('ДСЕ','dse',dse)}${inp('Масса изделия/ДСЕ, кг','mass')}${sel('Операция для расценки','rateOp',ops)}${sel('Технологическая операция','techOp',ks(d.ops))}${inpText('Описание технологической операции / что делают','operationDesc','Например: точение наружного диаметра')}${sel('Материал','material',ks(d.materials))}${inpText('Толщина / параметр таблицы','thickness','Например: 5 мм')}${inpText('Тип оборудования','equipment','Например: токарный станок')}<button class="main" onclick="calculateStrictNorm()">Рассчитать норму по загруженной базе</button><h2>2. Норма</h2>${inp('Норма из таблицы','base')}${sel('Единица нормы','normUnit',['минуты','часы','секунды'])}${sel('Норма дана на количество','normBaseQty',['1','10','100','1000','10000'])}${inp('ПЗ время, сек','setup')}${inp('Партия для ПЗ, шт','batch')}${inp('Количество для расчёта','qty')}<div class="note"><b>Точность</b><span>По умолчанию ввод в минутах. Например: 0,048 мин на 100 шт = 2,88 сек на 100 шт = 0,0288 сек на 1 шт. При необходимости можно выбрать часы или секунды.</span></div>${normMatchesBlock()}<div class="grid">${res('Норма на 1 шт',sec(c.basePerOne))}${res('На 1 шт в минутах',minFmt(c.basePerOne))}${res('Итого на количество',sec(c.totalForQty),'big')}${res('Итого в минутах',minFmt(c.totalForQty))}</div><h2>3. Оплата</h2>${sel('Вид оплаты','paymentType',['Сдельная','Тарифная','Обе'])}${sel('Разряд','grade',ks(d.grades))}<div class="note"><b>Расчёт цены</b><span>Сдельная = расценка × количество × коэффициент разряда × тариф. Тарифная = норма времени × ставка руб/час × тариф. Режим «Обе» складывает оба варианта.</span></div>${sel('Тариф/условие','tariff',ks(d.tariffs))}<div class="pay"><span>Итого</span><b>${rub(p.total)}</b><small>Сдельная ${rub(p.piece)} · тарифная ${rub(p.tariff)}</small></div><button class="main" onclick="saveRec(0)">Сохранить расчёт нормы</button></section></main>`}
+function screenChrono(c){return `<main><section class="card"><h2>Хронометраж</h2>${sel('Сотрудник / смена / бригада','employee',state.data.employees)}${inp('Серия хронометража','chronoSeries')}<div class="grid">${res('Норма на количество',sec(c.totalForQty))}${res('Замеров',seriesRecords().length)}${res('Средний факт',seriesRecords().length?sec(avgFact()):'—')}${res('Отклонение',seriesRecords().length?deviation().toFixed(3)+'%':'—')}${res('Статус',status(),'big')}</div><div class="timer"><div class="timerval">${sec(state.timer||0)}</div>${!state.running?'<button class="main" onclick="startTimer()">Старт</button>':'<button class="danger" onclick="stopTimer()">Стоп и сохранить</button>'}<div class="manual"><input id="manualSec" placeholder="Факт, сек вручную" inputmode="decimal"><button onclick="saveManual()">Добавить</button></div></div></section><section class="card"><h2>Журнал</h2>${state.records.length?state.records.slice(0,50).map(r=>`<div class="record"><b>${r.product} · ${r.dse}</b><span>${r.techOp} · масса ${r.mass||'—'} кг</span><small>Норма ${raw(r.totalForQty)} сек · исходно ${r.rawBase} ${r.normUnit||'минуты'} на ${r.normBaseQty} · факт ${r.factSeconds?raw(r.factSeconds)+' сек':'—'} · ${r.employee||''} · ${r.chronoSeries||''}</small><small>Оплата: ${rub(r.pay)}</small></div>`).join(''):'<p class="muted">Пока нет записей.</p>'}<button onclick="dl('journal_excel.csv',recordsCsv())">Выгрузить журнал для Excel</button></section></main>`}
+function screenData(){return `<main><section class="card"><h2>Справочники</h2><button onclick="addProduct()">Добавить изделие / ДСЕ / расценку</button><button onclick="addOp()">Добавить техоперацию</button><button onclick="addMaterial()">Добавить материал</button><button onclick="addEmployee()">Добавить сотрудника / смену / бригаду</button><button onclick="addTariff()">Добавить тариф / условие</button><button onclick="editGradeRate()">Изменить ставку разряда руб/час</button><button onclick="editGradeCoef()">Изменить коэффициент разряда</button><button onclick="addGrade()">Добавить новый разряд</button></section><section class="card"><h2>Нормы и справочники нормирования</h2><button onclick="dl('norms-template.csv',template())">Скачать шаблон норм CSV</button><label class="file">Загрузить нормы CSV — добавить к базе<input type="file" accept=".csv,text/csv" onchange="uploadNormsAdd(event)"></label><label class="file">Загрузить нормы CSV — заменить базу норм<input type="file" accept=".csv,text/csv" onchange="uploadNormsReplace(event)"></label><button onclick="saveDirectory()">Скачать справочник отдельно</button><label class="file">Загрузить справочник<input type="file" accept=".json,application/json" onchange="uploadDirectory(event)"></label></section><section class="card"><h2>Backup и сброс</h2><button onclick="dl('backup_full.json',JSON.stringify(state,null,2),'application/json;charset=utf-8')">Скачать полный Backup</button><label class="file">Загрузить полный Backup<input type="file" accept=".json,application/json" onchange="uploadBackup(event)"></label><button onclick="resetJournal()">Сбросить только журнал расчётов</button><button class="danger" onclick="resetAll()">Полный сброс всего</button></section></main>`}
+function tab(x){state.tab=x;render()}function set(k,v,r=true){state.form[k]=v;if(k==='product'){let d=ks(state.data.products[v])[0];state.form.dse=d;state.form.rateOp=ks(state.data.products[v][d])[0]}if(k==='dse')state.form.rateOp=ks(state.data.products[state.form.product][v])[0];if(k==='techOp'){let op=state.data.ops[v];if(op){state.form.base=String(op.base);state.form.setup=String(op.setup)}}r?render():save()}
+function saveRec(fact){let c=calc(),p=pay(),f=state.form;state.records.unshift({date:new Date().toISOString().slice(0,10),...f,rawBase:c.rawBase,rawBaseSeconds:c.rawBaseSeconds,basePerOne:c.basePerOne,totalForQty:c.totalForQty,factSeconds:n(fact,0),pay:p.total});render()}
+function startTimer(){state.start=performance.now();state.timer=0;state.running=true;interval=setInterval(()=>{state.timer=(performance.now()-state.start)/1000;render()},300);render()}
+function stopTimer(){let fact=(performance.now()-state.start)/1000;state.running=false;if(interval)clearInterval(interval);state.timer=0;saveRec(fact)}
+function saveManual(){let el=document.getElementById('manualSec');saveRec(el?el.value:0)}
+function addOp(){let name=prompt('Техоперация:');if(!name)return;state.data.ops[name]={base:n(prompt('Норма, сек:','0.0008'),0),setup:n(prompt('ПЗ, сек:','0'),0)};state.form.techOp=name;render()}
+function addProduct(){let p=prompt('Изделие:');if(!p)return;let d=prompt('ДСЕ:');if(!d)return;let o=prompt('Операция:');if(!o)return;let r=n(prompt('Расценка, руб:','100'),0);state.data.products[p]??={};state.data.products[p][d]??={};state.data.products[p][d][o]=r;state.form.product=p;state.form.dse=d;state.form.rateOp=o;render()}
+function addMaterial(){let name=prompt('Материал:');if(!name)return;state.data.materials[name]=n(prompt('Коэффициент материала:','1'),1);state.form.material=name;render()}
+function addEmployee(){let name=prompt('Сотрудник / смена / бригада:');if(!name)return;if(!state.data.employees.includes(name))state.data.employees.push(name);state.form.employee=name;render()}
+function addTariff(){let name=prompt('Тариф / условие:');if(!name)return;state.data.tariffs[name]=n(prompt('Коэффициент:','1'),1);state.form.tariff=name;render()}
+function addHourly(){editGradeRate()}
+function editGradeRate(){let gr=prompt('Разряд:',state.form.grade||'4 разряд');if(!gr)return;if(!state.data.grades[gr])state.data.grades[gr]=1;state.data.hourlyRates[gr]=n(prompt('Ставка руб/час для '+gr+':',String(state.data.hourlyRates[gr]||300)),300);state.form.grade=gr;render()}
+function editGradeCoef(){let gr=prompt('Разряд:',state.form.grade||'4 разряд');if(!gr)return;state.data.grades[gr]=n(prompt('Коэффициент для '+gr+':',String(state.data.grades[gr]||1)),1);if(!state.data.hourlyRates[gr])state.data.hourlyRates[gr]=300;state.form.grade=gr;render()}
+function addGrade(){let gr=prompt('Название разряда:','9 разряд');if(!gr)return;state.data.grades[gr]=n(prompt('Коэффициент:','1'),1);state.data.hourlyRates[gr]=n(prompt('Ставка руб/час:','300'),300);state.form.grade=gr;render()}
+function resetJournal(){if(confirm('Удалить только журнал? Справочники останутся.')){state.records=[];render()}}
+function resetAll(){if(confirm('Полный сброс всего?')){state=init();localStorage.removeItem(KEY);render()}}
+
+function template(){return csv([['Техоперация','Материал','Толщина','Контур','Базовое время сек','ПЗ время сек','Источник','Примечание'],['Резка','Сталь 45','6–10 мм','Прямой рез','0.048','0','Заводской норматив','пример: 0.048 мин на 100 шт, единицу выберите в программе']])}
+function cleanHeader(s){return String(s||'').replace(/^\ufeff/,'').trim().toLowerCase()}
+function splitCsvLine(line,delimiter){let out=[],cell='',q=false;for(let i=0;i<line.length;i++){let ch=line[i],next=line[i+1];if(ch==='"'&&q&&next==='"'){cell+='"';i++}else if(ch==='"'){q=!q}else if(ch===delimiter&&!q){out.push(cell.trim());cell=''}else{cell+=ch}}out.push(cell.trim());return out.map(x=>x.replace(/^"|"$/g,'').replace(/""/g,'"').trim())}
+function parseCsv(text){let raw=String(text||'').replace(/\r/g,'').split('\n').filter(x=>x.trim());if(!raw.length)return[];let first=raw[0];let delimiter=(first.split(';').length>=first.split(',').length)?';':',';let headers=splitCsvLine(first,delimiter).map(cleanHeader);return raw.slice(1).map(line=>{let cells=splitCsvLine(line,delimiter);let o={};headers.forEach((h,i)=>o[h]=cells[i]||'');return o})}
+function pick(row,names){for(let name of names){let key=cleanHeader(name);if(row[key]!==undefined&&row[key]!=='')return row[key]}return''}
+function normRowsFromCsv(text){return parseCsv(text).map(r=>{
+ let techOp=pick(r,['Техоперация','Операция','operation','operation_name','Наименование операции']);
+ let material=pick(r,['Материал','material','Марка материала']);
+ let thickness=pick(r,['Толщина','thickness','Толщина сталь/медь до, мм','Параметр 1']);
+ let equipment=pick(r,['Тип оборудования','Оборудование','equipment']);
+ let contour=pick(r,['Контур','contour','Вид контура','Параметр 2']);
+ let baseVal=pick(r,['Норма','Базовое время сек','Базовое время','Норма указана','Норма времени','Время']);
+ let unit=pick(r,['Единица нормы','Ед. изм.','Единица','unit'])||'минуты';
+ let normBaseQty=pick(r,['Норма дана на','На количество','norm_base_qty'])||'1';
+ let setupVal=pick(r,['ПЗ время сек','ПЗ','Подготовительно-заключительное время','setup']);
+ let source=pick(r,['Источник','source'])||'Импорт CSV';
+ let note=pick(r,['Примечание','Комментарий','note'])||'';
+ let base=n(baseVal,0);
+ let baseSeconds=toSec(base,unit);
+ return{techOp:techOp||'Операция из CSV',material,thickness,equipment,contour,base,baseSeconds,unit,normBaseQty:n(normBaseQty,1),setup:n(setupVal,0),source,note};
+}).filter(r=>r.techOp&&(rowSeconds(r)>0||r.setup!==0))}
+function applyImportedNormRows(rows){state.data.normRows=state.data.normRows||[];state.data.normRows.push(...rows);rows.forEach(r=>{if(r.techOp&&!state.data.ops[r.techOp])state.data.ops[r.techOp]={base:r.base||0,setup:r.setup||0,unit:r.unit||'минуты',normBaseQty:r.normBaseQty||1};if(r.material&&!state.data.materials[r.material])state.data.materials[r.material]=1});}
+function uploadNormsAdd(e){let file=e.target.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{let rows=normRowsFromCsv(reader.result);applyImportedNormRows(rows);if(!rows.length){alert('Не удалось найти строки норм. Проверь заголовки CSV: Техоперация; Материал; Норма или Базовое время')}else{alert('Добавлено строк норм: '+rows.length)}render()};reader.readAsText(file,'UTF-8')}
+function uploadNormsReplace(e){let file=e.target.files[0];if(!file)return;if(!confirm('Заменить всю базу загруженных норм? Изделия, сотрудники и журнал останутся.')){e.target.value='';return}let reader=new FileReader();reader.onload=()=>{let rows=normRowsFromCsv(reader.result);state.data.normRows=[];applyImportedNormRows(rows);if(!rows.length){alert('Не удалось найти строки норм. Проверь заголовки CSV: Техоперация; Материал; Норма или Базовое время')}else{alert('База норм заменена. Загружено строк: '+rows.length)}render()};reader.readAsText(file,'UTF-8')}
+function saveDirectory(){let directory={products:state.data.products,materials:state.data.materials,ops:state.data.ops,tariffs:state.data.tariffs,grades:state.data.grades,hourlyRates:state.data.hourlyRates,employees:state.data.employees,form:state.form};dl('timenorm_directory.json',JSON.stringify(directory,null,2),'application/json;charset=utf-8')}
+function uploadDirectory(e){let file=e.target.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let x=JSON.parse(reader.result);state.data.products=x.products||state.data.products;state.data.materials=x.materials||state.data.materials;state.data.ops=x.ops||state.data.ops;state.data.tariffs=x.tariffs||state.data.tariffs;state.data.grades=x.grades||state.data.grades;state.data.hourlyRates=x.hourlyRates||state.data.hourlyRates;state.data.employees=x.employees||state.data.employees;if(x.form)state.form={...state.form,...x.form};alert('Справочник загружен. Журнал расчётов не изменён.');render()}catch{alert('Не удалось загрузить справочник')}};reader.readAsText(file,'UTF-8')}
+function uploadBackup(e){let file=e.target.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let x=JSON.parse(reader.result);state={...state,...x,running:false,timer:0,start:0};alert('Backup загружен');render()}catch{alert('Не удалось загрузить Backup')}};reader.readAsText(file,'UTF-8')}
+function resetJournal(){if(confirm('Удалить только журнал расчётов? Справочники, нормы и изделия останутся.')){state.records=[];render()}}
+function resetAll(){if(confirm('Полный сброс удалит всё. Продолжить?')){localStorage.removeItem(KEY);location.reload()}}
+
+render();
+</script></body></html>
